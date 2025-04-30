@@ -32,7 +32,8 @@ const authOverrideController = {
           client_secret: config2.KEYCLOAK_CLIENT_SECRET,
           username: email,
           password,
-          grant_type: "password"
+          grant_type: "password",
+          scope: "openid"
         }).toString(),
         { headers: { "Content-Type": "application/x-www-form-urlencoded" } }
       );
@@ -80,6 +81,32 @@ const authOverrideController = {
       });
     }
   }
+};
+const checkAdminPermission = (requiredPermission) => async (ctx, next) => {
+  try {
+    const adminUser = ctx.session.user;
+    if (!adminUser) {
+      return ctx.unauthorized("User is not authenticated.");
+    }
+    const [roleId] = adminUser.roles.map((role) => role.id);
+    const adminPermissions = await strapi.admin.services.permission.findMany({
+      where: {
+        role: roleId,
+        action: requiredPermission
+      }
+    });
+    if (adminPermissions.length === 0) {
+      return ctx.forbidden(`Access denied. Missing permission: ${requiredPermission}`);
+    }
+    await next();
+  } catch (error) {
+    strapi.log.error("🔴 Error checking admin permission:", error);
+    return ctx.internalServerError("Failed to verify permissions.");
+  }
+};
+const middlewares = {
+  checkAdminPermission
+  // authMiddleware,
 };
 const bootstrap = async ({ strapi: strapi2 }) => {
   strapi2.log.info("🚀 Strapi Keycloak Passport Plugin Bootstrapped");
@@ -129,7 +156,7 @@ function overrideAdminRoutes(strapi2) {
       }
     });
     strapi2.log.info(`
-      
+
     ╔════════════════════════════════╗
     ║      🛡️ PASSPORT APPLIED 🛡️      ║
     ╚════════════════════════════════╝
@@ -244,7 +271,7 @@ const authController = {
       const config2 = strapi.config.get("plugin::strapi-keycloak-passport");
       const accessToken = await strapi.plugin("strapi-keycloak-passport").service("keycloakService").fetchAdminToken();
       const rolesResponse = await axios__default.default.get(
-        `${config2.KEYCLOAK_AUTH_URL}/auth/admin/realms/${config2.KEYCLOAK_REALM}/roles`,
+        `${config2.KEYCLOAK_AUTH_URL}/admin/realms/${config2.KEYCLOAK_REALM}/roles`,
         { headers: { Authorization: `Bearer ${accessToken}` } }
       );
       const keycloakRoles = rolesResponse.data.filter(
@@ -308,31 +335,6 @@ const authController = {
 const controllers = {
   authController,
   authOverrideController
-};
-const checkAdminPermission = (requiredPermission) => async (ctx, next) => {
-  try {
-    const adminUser = ctx.session.user;
-    if (!adminUser) {
-      return ctx.unauthorized("User is not authenticated.");
-    }
-    const [roleId] = adminUser.roles.map((role) => role.id);
-    const adminPermissions = await strapi.admin.services.permission.findMany({
-      where: {
-        role: roleId,
-        action: requiredPermission
-      }
-    });
-    if (adminPermissions.length === 0) {
-      return ctx.forbidden(`Access denied. Missing permission: ${requiredPermission}`);
-    }
-    await next();
-  } catch (error) {
-    strapi.log.error("🔴 Error checking admin permission:", error);
-    return ctx.internalServerError("Failed to verify permissions.");
-  }
-};
-const middlewares = {
-  checkAdminPermission
 };
 const policies = {};
 const routes = [
@@ -445,7 +447,6 @@ const adminUserService = ({ strapi: strapi2 }) => ({
       }
       return adminUser;
     } catch (error) {
-      console.log(error);
       strapi2.log.error("❌ Failed to create/update user:", error.message);
       throw new Error("Failed to create/update user.");
     }
@@ -457,7 +458,7 @@ async function fetchKeycloakUserRoles(keycloakUserId, strapi2) {
   try {
     const accessToken = await strapi2.plugin("strapi-keycloak-passport").service("keycloakService").fetchAdminToken();
     const rolesResponse = await axios__default.default.get(
-      `${config2.KEYCLOAK_AUTH_URL}/auth/admin/realms/${config2.KEYCLOAK_REALM}/users/${keycloakUserId}/role-mappings/realm`,
+      `${config2.KEYCLOAK_AUTH_URL}/admin/realms/${config2.KEYCLOAK_REALM}/users/${keycloakUserId}/role-mappings/realm`,
       { headers: { Authorization: `Bearer ${accessToken}` } }
     );
     return rolesResponse.data.map((role) => role.name);
@@ -525,7 +526,7 @@ const keycloakService = ({ strapi: strapi2 }) => ({
     const config2 = strapi2.config.get("plugin::strapi-keycloak-passport");
     try {
       const tokenResponse = await axios__default.default.post(
-        `${config2.KEYCLOAK_AUTH_URL}/auth/realms/${config2.KEYCLOAK_REALM}/protocol/openid-connect/token`,
+        `${config2.KEYCLOAK_AUTH_URL}/realms/${config2.KEYCLOAK_REALM}/protocol/openid-connect/token`,
         new URLSearchParams({
           client_id: config2.KEYCLOAK_CLIENT_ID,
           client_secret: config2.KEYCLOAK_CLIENT_SECRET,
@@ -566,3 +567,4 @@ const index = {
   services
 };
 module.exports = index;
+//# sourceMappingURL=index.js.map

@@ -128,7 +128,7 @@ async function fetchKeycloakUserRoles(keycloakUserId, strapi) {
 
     // 🔍 Fetch User Roles
     const rolesResponse = await axios.get(
-      `${config.KEYCLOAK_AUTH_URL}/auth/admin/realms/${config.KEYCLOAK_REALM}/users/${keycloakUserId}/role-mappings/realm`,
+      `${config.KEYCLOAK_AUTH_URL}/admin/realms/${config.KEYCLOAK_REALM}/users/${keycloakUserId}/role-mappings/realm`,
       { headers: { Authorization: `Bearer ${accessToken}` } }
     );
 

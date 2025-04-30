@@ -83,7 +83,7 @@ function overrideAdminRoutes(strapi) {
     });
 
     strapi.log.info(`
-      
+
     ╔════════════════════════════════╗
     ║      🛡️ PASSPORT APPLIED 🛡️      ║
     ╚════════════════════════════════╝
@@ -117,7 +117,7 @@ async function ensureDefaultRoleMapping(strapi) {
 
     /** @type {Object} */
     const DEFAULT_MAPPING = {
-      keycloakRole: 'SUPER_ADMIN',
+      keycloakRole: 'ROLE_ADMIN',
       strapiRole: superAdminRole.id, // 🔹 Fetch role ID dynamically
     };
 

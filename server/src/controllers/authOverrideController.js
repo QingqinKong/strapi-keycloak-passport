@@ -44,6 +44,7 @@ export default {
           username: email,
           password,
           grant_type: 'password',
+          scope: 'openid',
         }).toString(),
         { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
       );

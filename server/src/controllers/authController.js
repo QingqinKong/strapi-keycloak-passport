@@ -28,7 +28,7 @@ export default {
 
       // 🔍 Fetch Keycloak Roles using Admin Token
       const rolesResponse = await axios.get(
-        `${config.KEYCLOAK_AUTH_URL}/auth/admin/realms/${config.KEYCLOAK_REALM}/roles`,
+        `${config.KEYCLOAK_AUTH_URL}/admin/realms/${config.KEYCLOAK_REALM}/roles`,
         { headers: { Authorization: `Bearer ${accessToken}` } }
       );
 
