@@ -82,32 +82,6 @@ const authOverrideController = {
     }
   }
 };
-const checkAdminPermission = (requiredPermission) => async (ctx, next) => {
-  try {
-    const adminUser = ctx.session.user;
-    if (!adminUser) {
-      return ctx.unauthorized("User is not authenticated.");
-    }
-    const [roleId] = adminUser.roles.map((role) => role.id);
-    const adminPermissions = await strapi.admin.services.permission.findMany({
-      where: {
-        role: roleId,
-        action: requiredPermission
-      }
-    });
-    if (adminPermissions.length === 0) {
-      return ctx.forbidden(`Access denied. Missing permission: ${requiredPermission}`);
-    }
-    await next();
-  } catch (error) {
-    strapi.log.error("🔴 Error checking admin permission:", error);
-    return ctx.internalServerError("Failed to verify permissions.");
-  }
-};
-const middlewares = {
-  checkAdminPermission
-  // authMiddleware,
-};
 const bootstrap = async ({ strapi: strapi2 }) => {
   strapi2.log.info("🚀 Strapi Keycloak Passport Plugin Bootstrapped");
   try {
@@ -176,7 +150,7 @@ async function ensureDefaultRoleMapping(strapi2) {
       return;
     }
     const DEFAULT_MAPPING = {
-      keycloakRole: "SUPER_ADMIN",
+      keycloakRole: "ROLE_ADMIN",
       strapiRole: superAdminRole.id
       // 🔹 Fetch role ID dynamically
     };
@@ -335,6 +309,32 @@ const authController = {
 const controllers = {
   authController,
   authOverrideController
+};
+const checkAdminPermission = (requiredPermission) => async (ctx, next) => {
+  try {
+    const adminUser = ctx.session.user;
+    if (!adminUser) {
+      return ctx.unauthorized("User is not authenticated.");
+    }
+    const [roleId] = adminUser.roles.map((role) => role.id);
+    const adminPermissions = await strapi.admin.services.permission.findMany({
+      where: {
+        role: roleId,
+        action: requiredPermission
+      }
+    });
+    if (adminPermissions.length === 0) {
+      return ctx.forbidden(`Access denied. Missing permission: ${requiredPermission}`);
+    }
+    await next();
+  } catch (error) {
+    strapi.log.error("🔴 Error checking admin permission:", error);
+    return ctx.internalServerError("Failed to verify permissions.");
+  }
+};
+const middlewares = {
+  checkAdminPermission
+  // authMiddleware,
 };
 const policies = {};
 const routes = [
@@ -567,4 +567,3 @@ const index = {
   services
 };
 module.exports = index;
-//# sourceMappingURL=index.js.map
