@@ -528,6 +528,11 @@ const keycloakService = ({ strapi: strapi2 }) => ({
   async fetchAdminToken() {
     const config2 = strapi2.config.get("plugin::strapi-keycloak-passport");
     try {
+      console.log("kc", `${config2.KEYCLOAK_AUTH_URL}/realms/${config2.KEYCLOAK_REALM}/protocol/openid-connect/token`, {
+        client_id: config2.KEYCLOAK_CLIENT_ID,
+        client_secret: config2.KEYCLOAK_CLIENT_SECRET,
+        grant_type: "client_credentials"
+      });
       const tokenResponse = await axios.post(
         `${config2.KEYCLOAK_AUTH_URL}/realms/${config2.KEYCLOAK_REALM}/protocol/openid-connect/token`,
         new URLSearchParams({
