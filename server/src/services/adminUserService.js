@@ -64,10 +64,13 @@ const adminUserService = ({ strapi }) => ({
           const mappedRole = roleMappings.find(mapped => mapped.keycloakRole === role);
           if (mappedRole) appliedRoles.add(mappedRole.strapiRole);
         });
+        console.log('Keycloak roles:', keycloakRoles,roleMappings);
       } catch (error) {
         strapi.log.error('❌ Failed to fetch user roles from Keycloak:', error.response?.data || error.message);
       }
-
+      if(!appliedRoles.size) {
+        strapi2.log.warn(`⚠️ No roles found for user:${email} in Keycloak.`);
+      }
       /** @type {number[]} */
       const userRoles = appliedRoles.size ? Array.from(appliedRoles) : [DEFAULT_ROLE_ID];
 
@@ -84,7 +87,7 @@ const adminUserService = ({ strapi }) => ({
           },
         });
       }
-
+      console.log('Admin user created:', adminUser, 'with roles:', userRoles);
       if (JSON.stringify(adminUser.roles) !== JSON.stringify(userRoles)) {
         await strapi.documents('admin::user').update({
           documentId: adminUser.documentId,
@@ -98,6 +101,7 @@ const adminUserService = ({ strapi }) => ({
 
       return adminUser;
     } catch (error) {
+      console.log(error)
       strapi.log.error('❌ Failed to create/update user:', error.message);
       throw new Error('Failed to create/update user.');
     }
