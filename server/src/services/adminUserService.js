@@ -69,7 +69,7 @@ const adminUserService = ({ strapi }) => ({
         strapi.log.error('❌ Failed to fetch user roles from Keycloak:', error.response?.data || error.message);
       }
       if(!appliedRoles.size) {
-        strapi2.log.warn(`⚠️ No roles found for user:${email} in Keycloak.`);
+        strapi.log.warn(`⚠️ No roles found for user:${email} in Keycloak.`);
       }
       /** @type {number[]} */
       const userRoles = appliedRoles.size ? Array.from(appliedRoles) : [DEFAULT_ROLE_ID];

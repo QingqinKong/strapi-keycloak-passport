@@ -82,10 +82,10 @@ const authOverrideController = {
     }
   }
 };
-const bootstrap = async ({ strapi: strapi3 }) => {
-  strapi3.log.info("🚀 Strapi Keycloak Passport Plugin Bootstrapped");
+const bootstrap = async ({ strapi: strapi2 }) => {
+  strapi2.log.info("🚀 Strapi Keycloak Passport Plugin Bootstrapped");
   try {
-    strapi3.log.info("🔍 Registering Keycloak Plugin Permissions...");
+    strapi2.log.info("🔍 Registering Keycloak Plugin Permissions...");
     const actions = [
       {
         section: "plugins",
@@ -106,19 +106,19 @@ const bootstrap = async ({ strapi: strapi3 }) => {
         pluginName: "strapi-keycloak-passport"
       }
     ];
-    await strapi3.admin.services.permission.actionProvider.registerMany(actions);
-    strapi3.log.info("✅ Keycloak Plugin permissions successfully registered.");
+    await strapi2.admin.services.permission.actionProvider.registerMany(actions);
+    strapi2.log.info("✅ Keycloak Plugin permissions successfully registered.");
   } catch (error) {
-    strapi3.log.error("❌ Failed to register Keycloak Plugin permissions:", error);
+    strapi2.log.error("❌ Failed to register Keycloak Plugin permissions:", error);
   }
-  await ensureDefaultRoleMapping(strapi3);
-  overrideAdminRoutes(strapi3);
-  strapi3.log.info("🔒 Passport Keycloak Strategy Initialized");
+  await ensureDefaultRoleMapping(strapi2);
+  overrideAdminRoutes(strapi2);
+  strapi2.log.info("🔒 Passport Keycloak Strategy Initialized");
 };
-function overrideAdminRoutes(strapi3) {
+function overrideAdminRoutes(strapi2) {
   try {
-    strapi3.log.info("🛠 Applying Keycloak Authentication Middleware...");
-    strapi3.server.use(async (ctx, next) => {
+    strapi2.log.info("🛠 Applying Keycloak Authentication Middleware...");
+    strapi2.server.use(async (ctx, next) => {
       const requestPath = ctx.request.path;
       const requestMethod = ctx.request.method;
       if (requestPath === "/admin/login" && requestMethod === "POST") {
@@ -129,24 +129,24 @@ function overrideAdminRoutes(strapi3) {
         await next();
       }
     });
-    strapi3.log.info(`
+    strapi2.log.info(`
 
     ╔════════════════════════════════╗
     ║      🛡️ PASSPORT APPLIED 🛡️      ║
     ╚════════════════════════════════╝
     `);
-    strapi3.log.info("🚴 Admin login request rerouted to passport.");
-    strapi3.log.info("📒 Registration route blocked. 🚫");
-    strapi3.log.info("🕵️‍♂️ Reset password route blocked. 🚫");
+    strapi2.log.info("🚴 Admin login request rerouted to passport.");
+    strapi2.log.info("📒 Registration route blocked. 🚫");
+    strapi2.log.info("🕵️‍♂️ Reset password route blocked. 🚫");
   } catch (error) {
-    strapi3.log.error("❌ Failed to register Keycloak Middleware:", error);
+    strapi2.log.error("❌ Failed to register Keycloak Middleware:", error);
   }
 }
-async function ensureDefaultRoleMapping(strapi3) {
+async function ensureDefaultRoleMapping(strapi2) {
   try {
-    const superAdminRole = await strapi3.db.query("admin::role").findOne({ where: { code: "strapi-super-admin" } });
+    const superAdminRole = await strapi2.db.query("admin::role").findOne({ where: { code: "strapi-super-admin" } });
     if (!superAdminRole) {
-      strapi3.log.warn("⚠️ Super Admin role not found. Skipping default role mapping.");
+      strapi2.log.warn("⚠️ Super Admin role not found. Skipping default role mapping.");
       return;
     }
     const DEFAULT_MAPPING = {
@@ -154,21 +154,21 @@ async function ensureDefaultRoleMapping(strapi3) {
       strapiRole: superAdminRole.id
       // 🔹 Fetch role ID dynamically
     };
-    const existingMapping = await strapi3.db.query("plugin::strapi-keycloak-passport.role-mapping").findOne({ where: { keycloakRole: DEFAULT_MAPPING.keycloakRole } });
+    const existingMapping = await strapi2.db.query("plugin::strapi-keycloak-passport.role-mapping").findOne({ where: { keycloakRole: DEFAULT_MAPPING.keycloakRole } });
     if (!existingMapping) {
-      await strapi3.db.query("plugin::strapi-keycloak-passport.role-mapping").create({ data: DEFAULT_MAPPING });
-      strapi3.log.info(`✅ Default Role Mapping Created: ${DEFAULT_MAPPING.keycloakRole} -> ${DEFAULT_MAPPING.strapiRole} (mapped to Super Admin Role)`);
+      await strapi2.db.query("plugin::strapi-keycloak-passport.role-mapping").create({ data: DEFAULT_MAPPING });
+      strapi2.log.info(`✅ Default Role Mapping Created: ${DEFAULT_MAPPING.keycloakRole} -> ${DEFAULT_MAPPING.strapiRole} (mapped to Super Admin Role)`);
     } else {
-      strapi3.log.info(`✅ Default Role Mapping Already Exists: ${existingMapping.keycloakRole} -> ${existingMapping.strapiRole} (mapping to Super Admin Role)`);
+      strapi2.log.info(`✅ Default Role Mapping Already Exists: ${existingMapping.keycloakRole} -> ${existingMapping.strapiRole} (mapping to Super Admin Role)`);
     }
   } catch (error) {
-    strapi3.log.error("❌ Failed to create default role mapping:", error);
+    strapi2.log.error("❌ Failed to create default role mapping:", error);
   }
 }
-const destroy = ({ strapi: strapi3 }) => {
+const destroy = ({ strapi: strapi2 }) => {
 };
-const register = ({ strapi: strapi3 }) => {
-  strapi3.log.info("🔄 Registering Strapi Keycloak Passport Plugin...");
+const register = ({ strapi: strapi2 }) => {
+  strapi2.log.info("🔄 Registering Strapi Keycloak Passport Plugin...");
 };
 const config = {
   default: {
@@ -384,7 +384,7 @@ const routes = [
     }
   }
 ];
-const adminUserService = ({ strapi: strapi3 }) => ({
+const adminUserService = ({ strapi: strapi2 }) => ({
   /**
    * Finds or creates an admin user in Strapi and assigns the correct role.
    *
@@ -405,30 +405,30 @@ const adminUserService = ({ strapi: strapi3 }) => ({
       const firstname = userInfo.given_name || "";
       const lastname = userInfo.family_name || "";
       const keycloakUserId = userInfo.sub;
-      const [adminUser] = await strapi3.entityService.findMany("admin::user", {
+      const [adminUser] = await strapi2.entityService.findMany("admin::user", {
         filters: { email },
         populate: { roles: true },
         limit: 1
       });
-      const roleMappings = await strapi3.service("plugin::strapi-keycloak-passport.roleMappingService").getMappings();
-      const DEFAULT_ROLE_ID = strapi3.config.get("plugin::strapi-keycloak-passport").roleConfigs.defaultRoleId;
+      const roleMappings = await strapi2.service("plugin::strapi-keycloak-passport.roleMappingService").getMappings();
+      const DEFAULT_ROLE_ID = strapi2.config.get("plugin::strapi-keycloak-passport").roleConfigs.defaultRoleId;
       let appliedRoles = /* @__PURE__ */ new Set();
       try {
-        const keycloakRoles = await fetchKeycloakUserRoles(keycloakUserId, strapi3);
+        const keycloakRoles = await fetchKeycloakUserRoles(keycloakUserId, strapi2);
         keycloakRoles.forEach((role) => {
           const mappedRole = roleMappings.find((mapped) => mapped.keycloakRole === role);
           if (mappedRole) appliedRoles.add(mappedRole.strapiRole);
         });
         console.log("Keycloak roles:", keycloakRoles, roleMappings);
       } catch (error) {
-        strapi3.log.error("❌ Failed to fetch user roles from Keycloak:", error.response?.data || error.message);
+        strapi2.log.error("❌ Failed to fetch user roles from Keycloak:", error.response?.data || error.message);
       }
       if (!appliedRoles.size) {
         strapi2.log.warn(`⚠️ No roles found for user:${email} in Keycloak.`);
       }
       const userRoles = appliedRoles.size ? Array.from(appliedRoles) : [DEFAULT_ROLE_ID];
       if (!adminUser) {
-        await strapi3.entityService.create("admin::user", {
+        await strapi2.entityService.create("admin::user", {
           data: {
             email,
             firstname,
@@ -441,7 +441,7 @@ const adminUserService = ({ strapi: strapi3 }) => ({
       }
       console.log("Admin user created:", adminUser, "with roles:", userRoles);
       if (JSON.stringify(adminUser.roles) !== JSON.stringify(userRoles)) {
-        await strapi3.documents("admin::user").update({
+        await strapi2.documents("admin::user").update({
           documentId: adminUser.documentId,
           data: {
             firstname,
@@ -453,27 +453,27 @@ const adminUserService = ({ strapi: strapi3 }) => ({
       return adminUser;
     } catch (error) {
       console.log(error);
-      strapi3.log.error("❌ Failed to create/update user:", error.message);
+      strapi2.log.error("❌ Failed to create/update user:", error.message);
       throw new Error("Failed to create/update user.");
     }
   }
 });
-async function fetchKeycloakUserRoles(keycloakUserId, strapi3) {
+async function fetchKeycloakUserRoles(keycloakUserId, strapi2) {
   if (!keycloakUserId) throw new Error("❌ Keycloak user ID is missing!");
-  const config2 = strapi3.config.get("plugin::strapi-keycloak-passport");
+  const config2 = strapi2.config.get("plugin::strapi-keycloak-passport");
   try {
-    const accessToken = await strapi3.plugin("strapi-keycloak-passport").service("keycloakService").fetchAdminToken();
+    const accessToken = await strapi2.plugin("strapi-keycloak-passport").service("keycloakService").fetchAdminToken();
     const rolesResponse = await axios__default.default.get(
       `${config2.KEYCLOAK_AUTH_URL}/admin/realms/${config2.KEYCLOAK_REALM}/users/${keycloakUserId}/role-mappings/realm`,
       { headers: { Authorization: `Bearer ${accessToken}` } }
     );
     return rolesResponse.data.map((role) => role.name);
   } catch (error) {
-    strapi3.log.error("❌ Failed to fetch Keycloak user roles:", error.response?.data || error.message);
+    strapi2.log.error("❌ Failed to fetch Keycloak user roles:", error.response?.data || error.message);
     throw new Error("Failed to fetch Keycloak user roles.");
   }
 }
-const roleMappingService = ({ strapi: strapi3 }) => ({
+const roleMappingService = ({ strapi: strapi2 }) => ({
   /**
    * Saves the given role mappings to the database.
    *
@@ -484,7 +484,7 @@ const roleMappingService = ({ strapi: strapi3 }) => ({
    */
   async saveMappings(mappings) {
     try {
-      await strapi3.db.query("plugin::strapi-keycloak-passport.role-mapping").deleteMany({
+      await strapi2.db.query("plugin::strapi-keycloak-passport.role-mapping").deleteMany({
         where: {
           id: {
             $notNull: true
@@ -492,13 +492,13 @@ const roleMappingService = ({ strapi: strapi3 }) => ({
         }
       });
       for (const [keycloakRole, strapiRole] of Object.entries(mappings)) {
-        await strapi3.entityService.create("plugin::strapi-keycloak-passport.role-mapping", {
+        await strapi2.entityService.create("plugin::strapi-keycloak-passport.role-mapping", {
           data: { keycloakRole, strapiRole }
         });
       }
-      strapi3.log.info("✅ Role mappings saved successfully.");
+      strapi2.log.info("✅ Role mappings saved successfully.");
     } catch (error) {
-      strapi3.log.error("❌ Failed to save role mappings:", error);
+      strapi2.log.error("❌ Failed to save role mappings:", error);
       throw new Error("Failed to save role mappings.");
     }
   },
@@ -511,15 +511,15 @@ const roleMappingService = ({ strapi: strapi3 }) => ({
    */
   async getMappings() {
     try {
-      const roleMappings = await strapi3.entityService.findMany("plugin::strapi-keycloak-passport.role-mapping", {});
+      const roleMappings = await strapi2.entityService.findMany("plugin::strapi-keycloak-passport.role-mapping", {});
       return roleMappings;
     } catch (error) {
-      strapi3.log.error("❌ Failed to retrieve role mappings:", error);
+      strapi2.log.error("❌ Failed to retrieve role mappings:", error);
       throw new Error("Failed to retrieve role mappings.");
     }
   }
 });
-const keycloakService = ({ strapi: strapi3 }) => ({
+const keycloakService = ({ strapi: strapi2 }) => ({
   /**
    * Fetches an admin access token from Keycloak.
    *
@@ -529,7 +529,7 @@ const keycloakService = ({ strapi: strapi3 }) => ({
    * @throws {Error} If authentication fails.
    */
   async fetchAdminToken() {
-    const config2 = strapi3.config.get("plugin::strapi-keycloak-passport");
+    const config2 = strapi2.config.get("plugin::strapi-keycloak-passport");
     try {
       const tokenResponse = await axios__default.default.post(
         `${config2.KEYCLOAK_AUTH_URL}/realms/${config2.KEYCLOAK_REALM}/protocol/openid-connect/token`,
@@ -544,10 +544,10 @@ const keycloakService = ({ strapi: strapi3 }) => ({
       if (!accessToken) {
         throw new Error("❌ Keycloak returned an empty access token");
       }
-      strapi3.log.info("✅ Successfully fetched Keycloak admin token.");
+      strapi2.log.info("✅ Successfully fetched Keycloak admin token.");
       return accessToken;
     } catch (error) {
-      strapi3.log.error("❌ Keycloak Admin Token Fetch Error:", {
+      strapi2.log.error("❌ Keycloak Admin Token Fetch Error:", {
         status: error.response?.status || "Unknown",
         message: error.response?.data || error.message
       });
