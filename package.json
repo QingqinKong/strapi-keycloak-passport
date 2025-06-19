@@ -1,5 +1,5 @@
 {
-  "name": "strapi-keycloak-passport",
+  "name": "@tonglec/strapi-keycloak-passport",
   "version": "0.1.5",
   "description": "Keycloak authentication provider for the Strapi v5 administration panel.",
   "license": "MIT",
@@ -72,7 +72,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/QingqinKong/strapi-keycloak-passport"
+    "url": "https://github.com/TongLeC/strapi-keycloak-passport"
   },
   "bugs": {
     "url": "https://github.com/QingqinKong/strapi-keycloak-passport/issues"

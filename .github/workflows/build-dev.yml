@@ -1,0 +1,36 @@
+name: build npm package
+on:
+  push:
+    branches:
+      - dev
+      - env-dev
+  pull_request:
+    branches:
+      - dev
+
+jobs:
+  generate-sr-axios-client:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    name: Generate Npm SR Client
+    steps:
+      - uses: actions/setup-node@v3
+
+      # Checkout your code
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Install node
+        run: npm install
+
+      - name: build
+        run: npm run build
+
+      # 发布 api 包
+      - name: publish api package
+        uses: JS-DevTools/npm-publish@v3
+        if: github.event_name == 'push'
+        with:
+          package: ./package.json
+          token: ${{ secrets.GITHUB_TOKEN }}
+          registry: "https://npm.pkg.github.com"
