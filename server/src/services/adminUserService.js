@@ -67,9 +67,11 @@ const adminUserService = ({ strapi }) => ({
         console.log('Keycloak roles:', keycloakRoles,roleMappings);
       } catch (error) {
         strapi.log.error('❌ Failed to fetch user roles from Keycloak:', error.response?.data || error.message);
+        throw new Error('Failed to fetch user permission.');
       }
       if(!appliedRoles.size) {
         strapi.log.warn(`⚠️ No roles found for user:${email} in Keycloak.`);
+        throw new Error('No permission found.');
       }
       /** @type {number[]} */
       const userRoles = appliedRoles.size ? Array.from(appliedRoles) : [DEFAULT_ROLE_ID];
