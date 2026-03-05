@@ -73,7 +73,7 @@ const adminUserService = ({ strapi }) => ({
 
       // ✅ Efficiently create or update user only when needed
       if (!adminUser) {
-        await strapi.entityService.create('admin::user', {
+        const newUser = await strapi.entityService.create('admin::user', {
           data: {
             email,
             firstname,
@@ -83,9 +83,10 @@ const adminUserService = ({ strapi }) => ({
             roles: userRoles,
           },
         });
+        return newUser;
       }
 
-      if (JSON.stringify(adminUser.roles) !== JSON.stringify(userRoles)) {
+      if (JSON.stringify((adminUser.roles || []).map(r => r.id)) !== JSON.stringify(userRoles)) {
         await strapi.documents('admin::user').update({
           documentId: adminUser.documentId,
           data: {
