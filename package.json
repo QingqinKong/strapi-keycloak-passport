@@ -1,6 +1,6 @@
 {
   "name": "@tonglec/strapi-keycloak-passport",
-  "version": "0.1.6",
+  "version": "0.2.0",
   "description": "Keycloak authentication provider for the Strapi v5 administration panel.",
   "license": "MIT",
   "author": "LPIX-11 <mohamed.johnson@orange-sonatel.com>",
