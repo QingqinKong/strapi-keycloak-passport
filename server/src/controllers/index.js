@@ -7,8 +7,10 @@
 
 import authController from './authController';
 import authOverrideController from './authOverrideController';
+import keycloakAuthController from './keycloakAuthController';
 
 export default {
   authController,
   authOverrideController,
+  keycloakAuthController,
 };

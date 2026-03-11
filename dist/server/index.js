@@ -1,7 +1,9 @@
 "use strict";
 const Keycloak = require("keycloak-connect");
+const crypto = require("crypto");
 const _interopDefault = (e) => e && e.__esModule ? e : { default: e };
 const Keycloak__default = /* @__PURE__ */ _interopDefault(Keycloak);
+const crypto__default = /* @__PURE__ */ _interopDefault(crypto);
 let keycloakInstance = null;
 function buildKcConfig(config2) {
   return {
@@ -108,6 +110,42 @@ const authOverrideController = {
     }
   }
 };
+const KEYCLOAK_BUTTON_SCRIPT = `<script>
+(function () {
+  function inject() {
+    if (!window.location.pathname.includes('/auth/login')) return;
+    if (document.getElementById('kc-sso-btn')) return;
+    var form = document.querySelector('form');
+    if (!form) return;
+    var a = document.createElement('a');
+    a.id = 'kc-sso-btn';
+    a.href = '/strapi-keycloak-passport/auth/keycloak';
+    a.textContent = 'Login with Keycloak';
+    a.style = [
+      'display:block',
+      'width:100%',
+      'text-align:center',
+      'padding:8px 16px',
+      'margin-top:12px',
+      'border:1px solid #dcdce4',
+      'border-radius:4px',
+      'text-decoration:none',
+      'color:#32324d',
+      'font-weight:600',
+      'background:#fff',
+      'cursor:pointer',
+      'box-sizing:border-box'
+    ].join(';');
+    form.insertAdjacentElement('afterend', a);
+  }
+  var obs = new MutationObserver(inject);
+  document.addEventListener('DOMContentLoaded', function () {
+    obs.observe(document.body, { childList: true, subtree: true });
+    inject();
+  });
+  window.addEventListener('popstate', inject);
+}());
+<\/script>`;
 const bootstrap = async ({ strapi: strapi2 }) => {
   strapi2.log.info("🚀 Strapi Keycloak Passport Plugin Bootstrapped");
   try {
@@ -138,9 +176,29 @@ const bootstrap = async ({ strapi: strapi2 }) => {
     strapi2.log.error("❌ Failed to register Keycloak Plugin permissions:", error);
   }
   await ensureDefaultRoleMapping(strapi2);
+  injectKeycloakButton(strapi2);
   overrideAdminRoutes(strapi2);
   strapi2.log.info("🔒 Passport Keycloak Strategy Initialized");
 };
+function injectKeycloakButton(strapi2) {
+  strapi2.server.use(async (ctx, next) => {
+    await next();
+    if (!ctx.response.type?.includes("text/html")) return;
+    let body = ctx.body;
+    if (body && typeof body.pipe === "function") {
+      const chunks = [];
+      for await (const chunk of body) {
+        chunks.push(chunk);
+      }
+      body = Buffer.concat(chunks).toString("utf8");
+    } else if (Buffer.isBuffer(body)) {
+      body = body.toString("utf8");
+    }
+    if (typeof body !== "string" || !body.includes("</body>")) return;
+    ctx.response.remove("Content-Length");
+    ctx.body = body.replace("</body>", KEYCLOAK_BUTTON_SCRIPT + "</body>");
+  });
+}
 function overrideAdminRoutes(strapi2) {
   try {
     strapi2.log.info("🛠 Applying Keycloak Authentication Middleware...");
@@ -202,6 +260,10 @@ const config = {
     KEYCLOAK_REALM: "",
     KEYCLOAK_CLIENT_ID: "",
     KEYCLOAK_CLIENT_SECRET: "",
+    // Public URL of this Strapi instance. Used to build the callback redirect_uri
+    // for the Authorization Code Flow. Must be whitelisted in Keycloak's Valid Redirect URIs.
+    // Example: 'https://cms.example.com'
+    STRAPI_PUBLIC_URL: "http://localhost:1337",
     // Deprecated: keycloak-connect auto-derives these from KEYCLOAK_AUTH_URL + KEYCLOAK_REALM.
     // Kept for backward compatibility with existing user configs.
     KEYCLOAK_TOKEN_URL: "",
@@ -338,9 +400,134 @@ const authController = {
     }
   }
 };
+const keycloakAuthController = {
+  /**
+   * Initiates the Authorization Code Flow.
+   * Generates a CSRF state token, stores it in an httpOnly cookie, and
+   * redirects the browser to Keycloak's authorization endpoint.
+   *
+   * @param {Object} ctx - Koa context.
+   */
+  async initiate(ctx) {
+    const config2 = strapi.config.get("plugin::strapi-keycloak-passport");
+    if (!config2.STRAPI_PUBLIC_URL) {
+      strapi.log.warn("⚠️ STRAPI_PUBLIC_URL is not set in plugin config. Defaulting to http://localhost:1337");
+    }
+    const strapiPublicUrl = config2.STRAPI_PUBLIC_URL || "http://localhost:1337";
+    const state = crypto__default.default.randomUUID();
+    ctx.cookies.set("kc_state", state, {
+      httpOnly: true,
+      maxAge: 5 * 60 * 1e3,
+      overwrite: true,
+      sameSite: "lax"
+    });
+    const redirectUri = `${strapiPublicUrl}/strapi-keycloak-passport/auth/keycloak/callback`;
+    const authUrl = new URL(
+      `${config2.KEYCLOAK_AUTH_URL}/realms/${config2.KEYCLOAK_REALM}/protocol/openid-connect/auth`
+    );
+    authUrl.searchParams.set("response_type", "code");
+    authUrl.searchParams.set("client_id", config2.KEYCLOAK_CLIENT_ID);
+    authUrl.searchParams.set("redirect_uri", redirectUri);
+    authUrl.searchParams.set("scope", "openid");
+    authUrl.searchParams.set("state", state);
+    strapi.log.info(`🔵 Initiating Keycloak Authorization Code Flow → ${authUrl.origin}`);
+    return ctx.redirect(authUrl.toString());
+  },
+  /**
+   * Handles the Keycloak callback after the user authenticates.
+   * Validates the CSRF state, exchanges the authorization code for tokens,
+   * syncs the Strapi admin user, and returns an HTML page that logs the user in.
+   *
+   * @param {Object} ctx - Koa context.
+   */
+  async callback(ctx) {
+    try {
+      const config2 = strapi.config.get("plugin::strapi-keycloak-passport");
+      const { code, state } = ctx.query;
+      const savedState = ctx.cookies.get("kc_state");
+      if (!state || !savedState || state !== savedState) {
+        strapi.log.warn("⚠️ Keycloak callback: state mismatch (possible CSRF)");
+        return ctx.badRequest("Invalid state parameter");
+      }
+      ctx.cookies.set("kc_state", null, { maxAge: 0, overwrite: true });
+      if (!code) {
+        return ctx.badRequest("Missing authorization code");
+      }
+      const strapiPublicUrl = config2.STRAPI_PUBLIC_URL || "http://localhost:1337";
+      const redirectUri = `${strapiPublicUrl}/strapi-keycloak-passport/auth/keycloak/callback`;
+      const tokenUrl = `${config2.KEYCLOAK_AUTH_URL}/realms/${config2.KEYCLOAK_REALM}/protocol/openid-connect/token`;
+      const tokenResponse = await fetch(tokenUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({
+          grant_type: "authorization_code",
+          client_id: config2.KEYCLOAK_CLIENT_ID,
+          client_secret: config2.KEYCLOAK_CLIENT_SECRET,
+          code,
+          redirect_uri: redirectUri
+        })
+      });
+      if (!tokenResponse.ok) {
+        const body = await tokenResponse.text();
+        throw new Error(`Keycloak token exchange failed (${tokenResponse.status}): ${body}`);
+      }
+      const tokens = await tokenResponse.json();
+      const payloadB64 = tokens.access_token.split(".")[1];
+      const payload = JSON.parse(Buffer.from(payloadB64, "base64url").toString("utf8"));
+      const userInfo = {
+        sub: payload.sub,
+        email: payload.email,
+        preferred_username: payload.preferred_username,
+        given_name: payload.given_name,
+        family_name: payload.family_name
+      };
+      if (!userInfo.sub || !userInfo.email) {
+        const userinfoUrl = `${config2.KEYCLOAK_AUTH_URL}/realms/${config2.KEYCLOAK_REALM}/protocol/openid-connect/userinfo`;
+        const userinfoRes = await fetch(userinfoUrl, {
+          headers: { Authorization: `Bearer ${tokens.access_token}` }
+        });
+        if (!userinfoRes.ok) {
+          throw new Error(`Keycloak userinfo endpoint error: ${userinfoRes.status}`);
+        }
+        Object.assign(userInfo, await userinfoRes.json());
+      }
+      strapi.log.info(`✅ Keycloak code flow: user ${userInfo.email || userInfo.sub} authenticated`);
+      const adminUser = await strapi.service("plugin::strapi-keycloak-passport.adminUserService").findOrCreate(userInfo);
+      const jwt = await strapi.admin.services.token.createJwtToken(adminUser);
+      ctx.type = "text/html";
+      ctx.body = `<!DOCTYPE html>
+<html>
+  <head>
+    <title>Logging in…</title>
+    <meta charset="utf-8" />
+  </head>
+  <body>
+    <script>
+      try {
+        localStorage.setItem('jwtToken', ${JSON.stringify(jwt)});
+        window.location.replace('/admin');
+      } catch (e) {
+        window.location.replace('/admin');
+      }
+    <\/script>
+  </body>
+</html>`;
+    } catch (error) {
+      strapi.log.error("🔴 Keycloak Authorization Code Flow callback error:", error.message);
+      return ctx.badRequest("Authentication failed", {
+        error: {
+          status: error?.status ?? 400,
+          name: error?.name ?? "ApplicationError",
+          message: error?.message ?? "Authentication failed"
+        }
+      });
+    }
+  }
+};
 const controllers = {
   authController,
-  authOverrideController
+  authOverrideController,
+  keycloakAuthController
 };
 const checkAdminPermission = (requiredPermission) => async (ctx, next) => {
   try {
@@ -370,7 +557,25 @@ const middlewares = {
 };
 const policies = {};
 const routes = [
-  // ✅ Override Admin Login with Keycloak
+  // ✅ Keycloak Authorization Code Flow – initiate redirect
+  {
+    method: "GET",
+    path: "/auth/keycloak",
+    handler: "keycloakAuthController.initiate",
+    config: {
+      auth: false
+    }
+  },
+  // ✅ Keycloak Authorization Code Flow – callback (code exchange)
+  {
+    method: "GET",
+    path: "/auth/keycloak/callback",
+    handler: "keycloakAuthController.callback",
+    config: {
+      auth: false
+    }
+  },
+  // ✅ Override Admin Login with Keycloak (password grant – backward compat)
   {
     method: "POST",
     path: "/admin/login",

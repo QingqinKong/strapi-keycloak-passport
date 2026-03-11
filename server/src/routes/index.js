@@ -6,7 +6,27 @@ import checkAdminPermission from '../middlewares/checkAdminPermission';
  * @module Routes
  */
 const routes = [
-  // ✅ Override Admin Login with Keycloak
+  // ✅ Keycloak Authorization Code Flow – initiate redirect
+  {
+    method: 'GET',
+    path: '/auth/keycloak',
+    handler: 'keycloakAuthController.initiate',
+    config: {
+      auth: false,
+    },
+  },
+
+  // ✅ Keycloak Authorization Code Flow – callback (code exchange)
+  {
+    method: 'GET',
+    path: '/auth/keycloak/callback',
+    handler: 'keycloakAuthController.callback',
+    config: {
+      auth: false,
+    },
+  },
+
+  // ✅ Override Admin Login with Keycloak (password grant – backward compat)
   {
     method: 'POST',
     path: '/admin/login',
