@@ -1,5 +1,5 @@
 {
-  "name": "@tonglec/strapi-keycloak-passport",
+  "name": "@sigmareading/strapi-keycloak-passport",
   "version": "0.1.6",
   "description": "Keycloak authentication provider for the Strapi v5 administration panel.",
   "license": "MIT",
