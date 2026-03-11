@@ -71,12 +71,12 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/TongLeC/strapi-keycloak-passport"
+    "url": "https://github.com/SigmaReading/strapi-keycloak-passport"
   },
   "bugs": {
-    "url": "https://github.com/QingqinKong/strapi-keycloak-passport/issues"
+    "url": "https://github.com/SigmaReading/strapi-keycloak-passport/issues"
   },
-  "homepage": "https://github.com/QingqinKong/strapi-keycloak-passport#readme",
+  "homepage": "https://github.com/SigmaReading/strapi-keycloak-passport#readme",
   "strapi": {
     "kind": "plugin",
     "name": "strapi-keycloak-passport",
