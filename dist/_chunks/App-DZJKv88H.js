@@ -5,10 +5,7 @@ const admin = require("@strapi/strapi/admin");
 const designSystem = require("@strapi/design-system");
 const reactRouterDom = require("react-router-dom");
 const react = require("react");
-const axios = require("axios");
 const icons = require("@strapi/icons");
-const _interopDefault = (e) => e && e.__esModule ? e : { default: e };
-const axios__default = /* @__PURE__ */ _interopDefault(axios);
 const initialState = {
   keycloakRoles: [],
   strapiRoles: [],
@@ -44,15 +41,22 @@ const HomePage = () => {
     async function fetchRoles() {
       try {
         const [rolesResponse, mappingsResponse] = await Promise.all([
-          axios__default.default.get("/strapi-keycloak-passport/keycloak-roles"),
-          axios__default.default.get("/strapi-keycloak-passport/get-keycloak-role-mappings")
+          fetch("/strapi-keycloak-passport/keycloak-roles"),
+          fetch("/strapi-keycloak-passport/get-keycloak-role-mappings")
+        ]);
+        if (!rolesResponse.ok || !mappingsResponse.ok) {
+          throw new Error("Failed to fetch roles");
+        }
+        const [rolesData, mappingsData] = await Promise.all([
+          rolesResponse.json(),
+          mappingsResponse.json()
         ]);
         dispatch({
           type: "SET_DATA",
           payload: {
-            keycloakRoles: rolesResponse.data.keycloakRoles,
-            strapiRoles: rolesResponse.data.strapiRoles,
-            roleMappings: mappingsResponse.data
+            keycloakRoles: rolesData.keycloakRoles,
+            strapiRoles: rolesData.strapiRoles,
+            roleMappings: mappingsData
           }
         });
       } catch (err) {
@@ -67,7 +71,14 @@ const HomePage = () => {
   const saveMappings = async () => {
     setIsSaving(true);
     try {
-      await axios__default.default.post("/strapi-keycloak-passport/save-keycloak-role-mappings", { mappings: state.roleMappings });
+      const response = await fetch("/strapi-keycloak-passport/save-keycloak-role-mappings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mappings: state.roleMappings })
+      });
+      if (!response.ok) {
+        throw new Error(`Failed to save mappings: ${response.status}`);
+      }
       dispatch({ type: "SET_SUCCESS" });
       setTimeout(() => dispatch({ type: "RESET_SUCCESS" }), 3e3);
     } catch (error) {

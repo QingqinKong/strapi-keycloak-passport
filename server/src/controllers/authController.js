@@ -1,7 +1,5 @@
 'use strict';
 
-import axios from 'axios';
-
 /**
  * @module AuthController
  * @description Handles Keycloak authentication and role management.
@@ -26,14 +24,20 @@ export default {
         .service('keycloakService')
         .fetchAdminToken();
 
-      // 🔍 Fetch Keycloak Roles using Admin Token
-      const rolesResponse = await axios.get(
-        `${config.KEYCLOAK_AUTH_URL}/admin/realms/${config.KEYCLOAK_REALM}/roles`,
-        { headers: { Authorization: `Bearer ${accessToken}` } }
-      );
+      // 🔍 Fetch Keycloak Roles via Admin REST API
+      const url = `${config.KEYCLOAK_AUTH_URL}/admin/realms/${config.KEYCLOAK_REALM}/roles`;
+      const response = await fetch(url, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch roles: ${response.status}`);
+      }
+
+      const data = await response.json();
 
       /** @type {Object[]} */
-      const keycloakRoles = rolesResponse.data.filter(
+      const keycloakRoles = data.filter(
         role => !config.roleConfigs.excludedRoles.includes(role.name)
       );
 
@@ -44,7 +48,7 @@ export default {
     } catch (error) {
       strapi.log.error(
         '❌ Failed to fetch Keycloak roles: Have you tried giving the role "MANAGE-REALM" and "MANAGE-USERS"?',
-        error.response?.data || error.message
+        error.message
       );
       return ctx.badRequest('Failed to fetch Keycloak roles');
     }
@@ -74,7 +78,7 @@ export default {
 
       return ctx.send(formattedMappings);
     } catch (error) {
-      strapi.log.error('❌ Failed to retrieve role mappings:', error.response?.data || error.message);
+      strapi.log.error('❌ Failed to retrieve role mappings:', error.message);
       return ctx.badRequest('Failed to retrieve role mappings');
     }
   },
@@ -102,7 +106,7 @@ export default {
 
       return ctx.send({ message: 'Mappings saved successfully.' });
     } catch (error) {
-      strapi.log.error('❌ Failed to save role mappings:', error.response?.data || error.message);
+      strapi.log.error('❌ Failed to save role mappings:', error.message);
       return ctx.badRequest('Failed to save role mappings');
     }
   },

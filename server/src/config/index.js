@@ -4,6 +4,8 @@ export default {
     KEYCLOAK_REALM: '',
     KEYCLOAK_CLIENT_ID: '',
     KEYCLOAK_CLIENT_SECRET: '',
+    // Deprecated: keycloak-connect auto-derives these from KEYCLOAK_AUTH_URL + KEYCLOAK_REALM.
+    // Kept for backward compatibility with existing user configs.
     KEYCLOAK_TOKEN_URL: '',
     KEYCLOAK_USERINFO_URL: '',
     roleConfigs: {

@@ -3,7 +3,6 @@ import { Page } from "@strapi/strapi/admin";
 import { useNotifyAT, Loader, Box, Typography, Alert, Table, Thead, Tr, Th, Tbody, Td, SingleSelect, SingleSelectOption, Flex, Button, DesignSystemProvider } from "@strapi/design-system";
 import { Routes, Route } from "react-router-dom";
 import { useReducer, useState, useEffect } from "react";
-import axios from "axios";
 import { Collapse, Check } from "@strapi/icons";
 const initialState = {
   keycloakRoles: [],
@@ -40,15 +39,22 @@ const HomePage = () => {
     async function fetchRoles() {
       try {
         const [rolesResponse, mappingsResponse] = await Promise.all([
-          axios.get("/strapi-keycloak-passport/keycloak-roles"),
-          axios.get("/strapi-keycloak-passport/get-keycloak-role-mappings")
+          fetch("/strapi-keycloak-passport/keycloak-roles"),
+          fetch("/strapi-keycloak-passport/get-keycloak-role-mappings")
+        ]);
+        if (!rolesResponse.ok || !mappingsResponse.ok) {
+          throw new Error("Failed to fetch roles");
+        }
+        const [rolesData, mappingsData] = await Promise.all([
+          rolesResponse.json(),
+          mappingsResponse.json()
         ]);
         dispatch({
           type: "SET_DATA",
           payload: {
-            keycloakRoles: rolesResponse.data.keycloakRoles,
-            strapiRoles: rolesResponse.data.strapiRoles,
-            roleMappings: mappingsResponse.data
+            keycloakRoles: rolesData.keycloakRoles,
+            strapiRoles: rolesData.strapiRoles,
+            roleMappings: mappingsData
           }
         });
       } catch (err) {
@@ -63,7 +69,14 @@ const HomePage = () => {
   const saveMappings = async () => {
     setIsSaving(true);
     try {
-      await axios.post("/strapi-keycloak-passport/save-keycloak-role-mappings", { mappings: state.roleMappings });
+      const response = await fetch("/strapi-keycloak-passport/save-keycloak-role-mappings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mappings: state.roleMappings })
+      });
+      if (!response.ok) {
+        throw new Error(`Failed to save mappings: ${response.status}`);
+      }
       dispatch({ type: "SET_SUCCESS" });
       setTimeout(() => dispatch({ type: "RESET_SUCCESS" }), 3e3);
     } catch (error) {

@@ -1,4 +1,4 @@
-import axios from 'axios';
+import { getGrantManager } from './keycloakConnectFactory';
 
 /**
  * @module KeycloakService
@@ -8,7 +8,7 @@ import axios from 'axios';
  */
 const keycloakService = ({ strapi }) => ({
   /**
-   * Fetches an admin access token from Keycloak.
+   * Fetches an admin access token from Keycloak using client credentials grant.
    *
    * @async
    * @function fetchAdminToken
@@ -16,36 +16,21 @@ const keycloakService = ({ strapi }) => ({
    * @throws {Error} If authentication fails.
    */
   async fetchAdminToken() {
-    const config = strapi.config.get('plugin::strapi-keycloak-passport');
-
     try {
-      // 🔥 Send request to Keycloak for an admin token
-      const tokenResponse = await axios.post(
-        `${config.KEYCLOAK_AUTH_URL}/realms/${config.KEYCLOAK_REALM}/protocol/openid-connect/token`,
-        new URLSearchParams({
-          client_id: config.KEYCLOAK_CLIENT_ID,
-          client_secret: config.KEYCLOAK_CLIENT_SECRET,
-          grant_type: 'client_credentials',
-        }).toString(),
-        { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
-      );
+      const grantManager = getGrantManager(strapi);
+      const grant = await grantManager.obtainFromClientCredentials();
 
       /** @type {string | undefined} */
-      const accessToken = tokenResponse.data?.access_token;
+      const accessToken = grant.access_token?.token;
 
-      // 🔄 Ensure access token is valid
       if (!accessToken) {
-        throw new Error('❌ Keycloak returned an empty access token');
+        throw new Error('Keycloak returned an empty access token');
       }
 
       strapi.log.info('✅ Successfully fetched Keycloak admin token.');
       return accessToken;
     } catch (error) {
-      strapi.log.error('❌ Keycloak Admin Token Fetch Error:', {
-        status: error.response?.status || 'Unknown',
-        message: error.response?.data || error.message,
-      });
-
+      strapi.log.error('❌ Keycloak Admin Token Fetch Error:', error.message);
       throw new Error('Failed to fetch Keycloak admin token');
     }
   },

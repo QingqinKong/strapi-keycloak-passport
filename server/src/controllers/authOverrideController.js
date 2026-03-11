@@ -1,6 +1,6 @@
 'use strict';
 
-import axios from 'axios';
+import { getGrantManager } from '../services/keycloakConnectFactory';
 
 /**
  * @module AuthOverrideController
@@ -31,36 +31,39 @@ export default {
         return ctx.badRequest('Missing email or password');
       }
 
-      /** @type {Object} */
-      const config = strapi.config.get('plugin::strapi-keycloak-passport');
       strapi.log.info(`🔵 Authenticating ${email} via Keycloak Passport...`);
 
-      // 🔑 Authenticate with Keycloak
-      const tokenResponse = await axios.post(
-        `${config.KEYCLOAK_AUTH_URL}${config.KEYCLOAK_TOKEN_URL}`,
-        new URLSearchParams({
-          client_id: config.KEYCLOAK_CLIENT_ID,
-          client_secret: config.KEYCLOAK_CLIENT_SECRET,
-          username: email,
-          password,
-          grant_type: 'password',
-          scope: 'openid',
-        }).toString(),
-        { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
-      );
+      // 🔑 Authenticate with Keycloak using password grant
+      const grantManager = getGrantManager(strapi);
+      const grant = await grantManager.obtainDirectly(email, password);
 
-      /** @type {string} */
-      const access_token = tokenResponse.data.access_token;
       strapi.log.info(`✅ ${email} successfully authenticated via Keycloak.`);
 
-      // 🔍 Fetch user details from Keycloak
-      const userInfoResponse = await axios.get(
-        `${config.KEYCLOAK_AUTH_URL}${config.KEYCLOAK_USERINFO_URL}`,
-        { headers: { Authorization: `Bearer ${access_token}` } }
-      );
+      // 🔍 Extract user info from decoded JWT payload
+      const tokenContent = grant.access_token?.content || grant.id_token?.content || {};
 
       /** @type {Object} */
-      const userInfo = userInfoResponse.data;
+      const userInfo = {
+        sub: tokenContent.sub,
+        email: tokenContent.email || email,
+        preferred_username: tokenContent.preferred_username,
+        given_name: tokenContent.given_name,
+        family_name: tokenContent.family_name,
+      };
+
+      // If claims are missing from token, fall back to native fetch for userinfo endpoint
+      if (!userInfo.sub) {
+        const config = strapi.config.get('plugin::strapi-keycloak-passport');
+        const userinfoUrl = `${config.KEYCLOAK_AUTH_URL}/realms/${config.KEYCLOAK_REALM}/protocol/openid-connect/userinfo`;
+        const response = await fetch(userinfoUrl, {
+          headers: { Authorization: `Bearer ${grant.access_token.token}` },
+        });
+        if (!response.ok) {
+          throw new Error(`Keycloak userinfo endpoint error: ${response.status}`);
+        }
+        const data = await response.json();
+        Object.assign(userInfo, data);
+      }
 
       // 🔄 Find or create Strapi admin user
       /** @type {Object} */
@@ -75,7 +78,7 @@ export default {
       // ✅ Store authenticated user in `ctx.state.user`
       ctx.session = {
         ...ctx.session,
-        user: adminUser
+        user: adminUser,
       };
 
       return ctx.send({
@@ -97,7 +100,7 @@ export default {
     } catch (error) {
       strapi.log.error(
         `🔴 Authentication Failed for ${ctx.request.body?.email || 'unknown user'}:`,
-        error.response?.data || error.message
+        error.message
       );
 
       return ctx.badRequest('Invalid credentials', {

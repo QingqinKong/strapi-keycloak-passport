@@ -36,7 +36,7 @@ const index = {
         defaultMessage: PLUGIN_ID
       },
       Component: async () => {
-        const { App } = await import("../_chunks/App-CmBonNfA.mjs");
+        const { App } = await import("../_chunks/App-B8R7mcDa.mjs");
         return App;
       },
       permissions: [

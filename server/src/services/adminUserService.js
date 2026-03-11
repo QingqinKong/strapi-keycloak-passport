@@ -1,5 +1,3 @@
-import axios from 'axios';
-
 /**
  * @module AdminUserService
  * @description Handles Keycloak authentication and maps user roles in Strapi.
@@ -65,10 +63,10 @@ const adminUserService = ({ strapi }) => ({
           if (mappedRole) appliedRoles.add(mappedRole.strapiRole);
         });
       } catch (error) {
-        strapi.log.error('❌ Failed to fetch user roles from Keycloak:', error.response?.data || error.message);
+        strapi.log.error('❌ Failed to fetch user roles from Keycloak:', error.message);
         throw new Error('Failed to fetch user permission.');
       }
-      if(!appliedRoles.size) {
+      if (!appliedRoles.size) {
         strapi.log.warn(`⚠️ No roles found for user:${email} in Keycloak.`);
         throw new Error('No permission found.');
       }
@@ -108,7 +106,7 @@ const adminUserService = ({ strapi }) => ({
 });
 
 /**
- * Fetches user roles from Keycloak.
+ * Fetches user roles from Keycloak Admin REST API using native fetch.
  *
  * @async
  * @function fetchKeycloakUserRoles
@@ -129,15 +127,20 @@ async function fetchKeycloakUserRoles(keycloakUserId, strapi) {
       .service('keycloakService')
       .fetchAdminToken();
 
-    // 🔍 Fetch User Roles
-    const rolesResponse = await axios.get(
-      `${config.KEYCLOAK_AUTH_URL}/admin/realms/${config.KEYCLOAK_REALM}/users/${keycloakUserId}/role-mappings/realm`,
-      { headers: { Authorization: `Bearer ${accessToken}` } }
-    );
+    // 🔍 Fetch User Roles via Admin REST API
+    const url = `${config.KEYCLOAK_AUTH_URL}/admin/realms/${config.KEYCLOAK_REALM}/users/${keycloakUserId}/role-mappings/realm`;
+    const response = await fetch(url, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
 
-    return rolesResponse.data.map(role => role.name);
+    if (!response.ok) {
+      throw new Error(`Keycloak admin API error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data.map(role => role.name);
   } catch (error) {
-    strapi.log.error('❌ Failed to fetch Keycloak user roles:', error.response?.data || error.message);
+    strapi.log.error('❌ Failed to fetch Keycloak user roles:', error.message);
     throw new Error('Failed to fetch Keycloak user roles.');
   }
 }

@@ -37,7 +37,7 @@ const index = {
         defaultMessage: PLUGIN_ID
       },
       Component: async () => {
-        const { App } = await Promise.resolve().then(() => require("../_chunks/App-Dcls-5hj.js"));
+        const { App } = await Promise.resolve().then(() => require("../_chunks/App-DZJKv88H.js"));
         return App;
       },
       permissions: [
